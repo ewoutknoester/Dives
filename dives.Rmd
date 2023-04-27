@@ -1,0 +1,1096 @@
+---
+title: "dives"
+author: "Ewout Knoester"
+date: "29/05/2022"
+output: html_document
+---
+
+
+# Set R and packages
+```{r setup}
+
+rm(list=ls()) # Clear workspace
+knitr::opts_knit$set(root.dir = '/tmp') #Set directory at current directory for all subsequent chunks
+options(scipen = 100) # Remove scientific notation
+
+library(tidyverse)
+library(plyr)
+library(readxl)
+library(writexl)
+library(panelr) # Convert data from wide to long
+library(lubridate) # Date calculations
+library(rstatix)
+library(glmmTMB) # Nested beta regression
+library(DHARMa) # glm model validation
+library(car) # ANOVA results GLM
+library(emmeans) # Post hoccing
+library(ggpubr)
+library(ggplot2)
+library(ggthemes) # Pretty plots
+library(ggpattern) # Pretty bar plots
+library(forcats) # reverse factor levelling
+library(NCmisc) # Check packages used
+library(stringr) # Get first word of string
+library(data.table)
+library(cowplot) # Plot grid
+library(nlme) # GLS
+library(car) # ANOVA results GLM
+library(lme4) #GLMM
+library(officer) # Move table into word
+library(flextable) # layout table
+library(treemap) # treemap
+library(colorspace) # Create colour in hue, chroma & luminance: http://hclwizard.org:3000/hclcolorpicker/
+library(grid)
+library(png)
+
+# Function to facilitate averaging dataset
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(sum = sum(x[[col]]),
+      mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE),
+      n  = length(x[[col]]),
+      se = sd(x[[col]], na.rm=TRUE)/sqrt(length(x[[col]])))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- plyr::rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+```
+
+
+
+# Load and organize
+```{r prepare data}
+
+# RAW data
+## load first Excel sheet
+df0.raw <- read_excel("designedforx_dives.xls", sheet = 1)
+
+## Remove columns not used
+df1.clean <- select(df0.raw, -c('SI','boat', 'tank', 'workingpressure', 'doubletank', 'weight', 'O2', 'He'))
+
+# Set date and time format
+df1.clean$date <- strptime(df1.clean$date, format = "%Y-%m-%d")
+df1.clean$date <- paste(df1.clean$date, df1.clean$entrytime)
+df1.clean$date  <- strptime(df1.clean$date, format = "%Y-%m-%d %H:%M:%S")
+df1.clean <- select(df1.clean, -c(entrytime))
+
+# Transform dive duration from seconds to minutes
+df1.clean$duration <- df1.clean$duration/60 
+
+# Set places
+df1.clean$place <- as.factor(df1.clean$place)
+df1.clean$divesite <- as.factor(df1.clean$divesite)
+
+# Standardize categories for weather
+df1.clean$weather <- tolower(df1.clean$weather)
+df1.clean$weather <- as.factor(ifelse(df1.clean$weather  == '-', NA,
+                  ifelse(grepl("rain", df1.clean$weather), 'Rainy', 
+                  ifelse(grepl("cloud", df1.clean$weather), 'Cloudy',
+                  ifelse(grepl("overcast", df1.clean$weather), 'Cloudy',
+                  ifelse(grepl("su", df1.clean$weather), 'Sunny',
+                  ifelse(grepl("Zon", df1.clean$weather), 'Sunny', NA)))))))
+
+# Standardize visibility (in m)
+df1.clean$visibility <- gsub("m", "", as.character(df1.clean$visibility)) # remove meter notation
+df1.clean <- df1.clean %>% mutate(visibility = str_squish(visibility)) # remove white spaces
+df1.clean$visibility <- as.numeric(df1.clean$visibility)
+
+# Set temperatures
+df1.clean$airtemp <- ifelse(df1.clean$airtemp  == 0, NA, df1.clean$airtemp)
+df1.clean$bottomtemp <- ifelse(df1.clean$bottomtemp  == 0, NA, df1.clean$bottomtemp)
+df1.clean$surfacetemp <- ifelse(df1.clean$surfacetemp  == 0, NA, df1.clean$surfacetemp)
+
+# Organize buddies
+## To lower case for searching
+df1.clean$buddy <- tolower(df1.clean$buddy)
+
+## Subset based on location
+df1.clean <- subset(df1.clean, place == "Shimoni" | place == "Kisite" | place == "Diani" | place == "Flic en Flac" | place == "Jambiani" | place == "Kilifi" | place == "Lamu" | place == "Mafia" | place == "Malindi" | place == "Mnemba" | place == "Mombasa" | place == "Msambweni" | place == "Thanda" | place == "Watamu" | place == "Moheli")
+
+## Standardize names
+df1.clean$buddy <- ifelse(grepl('michelle ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('michelle', df1.clean$buddy), str_replace_all(df1.clean$buddy, "michelle","Michelle Marijt"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('eric ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('eric', df1.clean$buddy), str_replace_all(df1.clean$buddy, "eric","Eric Stokman"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('friso ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('friso', df1.clean$buddy), str_replace_all(df1.clean$buddy, "friso","Friso Knoester"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('jorinde ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('jorinde', df1.clean$buddy), str_replace_all(df1.clean$buddy, "jorinde","Jorinde Knoester"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('yatin ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('yats', df1.clean$buddy), str_replace_all(df1.clean$buddy, "yats","Yatin Patel"),
+ ifelse(grepl('yatin', df1.clean$buddy), str_replace_all(df1.clean$buddy, "yatin","Yatin Patel"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('selina ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('selina', df1.clean$buddy), str_replace_all(df1.clean$buddy, "selina","Selina Lutjeboer"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('anonymous', df1.clean$buddy), df1.clean$buddy,
+  ifelse(grepl('ano', df1.clean$buddy), str_replace_all(df1.clean$buddy, "ano","Anonymous"),  df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('sjoerd ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('sjoerd', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sjoerd","Sjoerd Klaasen"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('carla ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('carla', df1.clean$buddy), str_replace_all(df1.clean$buddy, "carla","Carla Knoester"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('carlotta ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('carlotta', df1.clean$buddy), str_replace_all(df1.clean$buddy, "carlotta","Carlotta Meriggi"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('jolien ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('jolien', df1.clean$buddy), str_replace_all(df1.clean$buddy, "jolien","Jolien Lelivelt"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('nike ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('nike', df1.clean$buddy), str_replace_all(df1.clean$buddy, "nike","Nike Dekkers"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('paula ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('paula', df1.clean$buddy), str_replace_all(df1.clean$buddy, "paula","Paula Anglada"),
+ ifelse(grepl('ada ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('ada', df1.clean$buddy), str_replace_all(df1.clean$buddy, "ada","Ada Barberena"), df1.clean$buddy))))
+df1.clean$buddy <- ifelse(grepl('oliver ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('oliver', df1.clean$buddy), str_replace_all(df1.clean$buddy, "oliver","Oliver Klokman"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('rianne ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('marianne ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('marianne', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('rianne', df1.clean$buddy), str_replace_all(df1.clean$buddy, "rianne","Rianne Laan"),
+ ifelse(grepl('rosanne ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('rosanne', df1.clean$buddy), str_replace_all(df1.clean$buddy, "rosanne","Rosanne Barthomoleus"),
+ ifelse(grepl('janneke', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('annemiek', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('anneleen', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('annelies', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('johannes', df1.clean$buddy), df1.clean$buddy,       
+ ifelse(grepl('anne ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('anne', df1.clean$buddy), str_replace_all(df1.clean$buddy, "anne","Anne van Domburg"), df1.clean$buddy)))))))))))))
+df1.clean$buddy <- ifelse(grepl('alistair ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('alistair', df1.clean$buddy), str_replace_all(df1.clean$buddy, "alistair","Alistair DeSousa"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('ariens ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('ariens', df1.clean$buddy), str_replace_all(df1.clean$buddy, "ariens","Ariens Kruijt"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('pascal ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('pascal', df1.clean$buddy), str_replace_all(df1.clean$buddy, "pascal","Pascal Heiduikers"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('harry ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('harry', df1.clean$buddy), str_replace_all(df1.clean$buddy, "harry","Harry Eibergen"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('ben pp', df1.clean$buddy), str_replace_all(df1.clean$buddy, "ben pp","Benjamin Ngowa"),
+                   ifelse(grepl('ben ', df1.clean$buddy), df1.clean$buddy,
+                   ifelse(grepl('ben', df1.clean$buddy), str_replace_all(df1.clean$buddy, "ben","Benjamin Ngowa"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('roel ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('roel', df1.clean$buddy), str_replace_all(df1.clean$buddy, "roel","Roel Heiduikers"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('rob ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('robbert-jan', df1.clean$buddy), str_replace_all(df1.clean$buddy, "robbert-jan","Robbert-Jan Geertsma"),
+ ifelse(grepl('rob', df1.clean$buddy), str_replace_all(df1.clean$buddy, "rob","Robbert-Jan Geertsma"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('kim ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('kim', df1.clean$buddy), str_replace_all(df1.clean$buddy, "kim","Kim Stokmans"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('harm ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('harm', df1.clean$buddy), str_replace_all(df1.clean$buddy, "harm","Harm Lutjeboer"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('emilia ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('emilia', df1.clean$buddy), str_replace_all(df1.clean$buddy, "emilia","Emilia Rizzi"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('sophie ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('sophie', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sophie","Sophie de Reus"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('barbara ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('barbara', df1.clean$buddy), str_replace_all(df1.clean$buddy, "barbara","Barbara Laa"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mary-beth ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mary-beth', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mary-beth","Mary-Beth Smith"),
+ ifelse(grepl('mary', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mary","Mary-Beth Smith"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('ellen ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('ellen', df1.clean$buddy), str_replace_all(df1.clean$buddy, "ellen","Ellen van den Brom"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('stijn ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('stijn', df1.clean$buddy), str_replace_all(df1.clean$buddy, "stijn","Stijn Tijkotte"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('chuba ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('chuba', df1.clean$buddy), str_replace_all(df1.clean$buddy, "chuba","Mohamed Tashwish"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('fanny ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('fanny', df1.clean$buddy), str_replace_all(df1.clean$buddy, "fanny","Fanny Koentjes"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('marlieke ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('marlieke', df1.clean$buddy), str_replace_all(df1.clean$buddy, "marlieke","Marlieke Luit"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('hamadi ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('hamadi', df1.clean$buddy), str_replace_all(df1.clean$buddy, "hamadi","Hamadi Mwamlavya"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('guido ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('guido', df1.clean$buddy), str_replace_all(df1.clean$buddy, "guido","Guido Paap"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('jochem ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('jochem', df1.clean$buddy), str_replace_all(df1.clean$buddy, "jochem","Jochem van Herwaarden"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('myriam ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('myriam', df1.clean$buddy), str_replace_all(df1.clean$buddy, "myriam","Myriam Groenendijk"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('sofia ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('sofia', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sofia","Sofia Kolkman"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('nienke ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('nienke', df1.clean$buddy), str_replace_all(df1.clean$buddy, "nienke","Nienke Klerks"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('angie ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('angie', df1.clean$buddy), str_replace_all(df1.clean$buddy, "angie","Angie Tziata"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('veerle ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('veerle', df1.clean$buddy), str_replace_all(df1.clean$buddy, "veerle","Veerle Plug"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('thyrza ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('thyrza', df1.clean$buddy), str_replace_all(df1.clean$buddy, "thyrza","Thyrza Zoons"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('tinka ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('tinka', df1.clean$buddy), str_replace_all(df1.clean$buddy, "tinka","Tinka Murk"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mgeni ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mgeni', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mgeni","Mgeni Wamwachai"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('cas ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('cas', df1.clean$buddy), str_replace_all(df1.clean$buddy, "cas","Cas Dinjens"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mercy ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mercy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mercy","Mercy Zawadi"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('renee ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('renee', df1.clean$buddy), str_replace_all(df1.clean$buddy, "renee","Renee Melkert"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('florine ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('florine', df1.clean$buddy), str_replace_all(df1.clean$buddy, "florine","Florine Kremer"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('chris ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('chris', df1.clean$buddy), str_replace_all(df1.clean$buddy, "chris","Chris de Jong"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('suzy ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('suzy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "suzy","Susanne Bahr"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('luis ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('luis', df1.clean$buddy), str_replace_all(df1.clean$buddy, "luis","Luis Almeida"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('elmar ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('elmar', df1.clean$buddy), str_replace_all(df1.clean$buddy, "elmar","Elmar Moerman"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('daisy ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('daisy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "daisy","Daisy Durden"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('quirijn ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('quirijn', df1.clean$buddy), str_replace_all(df1.clean$buddy, "quirijn","Quirijn Schurmann"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('tim ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('tim', df1.clean$buddy), str_replace_all(df1.clean$buddy, "tim","Tim Lardinois"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('bart ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('bart', df1.clean$buddy), str_replace_all(df1.clean$buddy, "bart","Bart Schoon"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('kennedy pp', df1.clean$buddy),str_replace_all(df1.clean$buddy, "kennedy pp", "Kennedy Mwamburi"),
+                   ifelse(grepl('kennedy ', df1.clean$buddy), df1.clean$buddy,
+                   ifelse(grepl('kennedy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "kennedy","Kennedy Mwamburi"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('marretje ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('marretje', df1.clean$buddy), str_replace_all(df1.clean$buddy, "marretje","Marretje Adriaanse"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('cindy ', df1.clean$buddy), df1.clean$buddy,
+     ifelse(grepl('cindy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "cindy", "Cindy Saru"),
+     ifelse(grepl('indy ', df1.clean$buddy), df1.clean$buddy,
+     ifelse(grepl('indy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "indy","Indy Koster"), df1.clean$buddy))))
+df1.clean$buddy <- ifelse(grepl('judy ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('judy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "judy","Judy Ndoto"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('jelle ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('jelle', df1.clean$buddy), str_replace_all(df1.clean$buddy, "jelle","Jelle Rienstra"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('clare ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('clare', df1.clean$buddy), str_replace_all(df1.clean$buddy, "clare","Clare Thouless"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('daniel pp', df1.clean$buddy), str_replace_all(df1.clean$buddy, "daniel pp","Daniel Camps"),
+  ifelse(grepl('daniel ', df1.clean$buddy), df1.clean$buddy,
+  ifelse(grepl('daniel', df1.clean$buddy), str_replace_all(df1.clean$buddy, "daniel","Daniel Camps"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('joanna ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('joanna', df1.clean$buddy), str_replace_all(df1.clean$buddy, "joanna","Joanna Hancock"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('asma ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('asma', df1.clean$buddy), str_replace_all(df1.clean$buddy, "asma","Asma Kopa"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('bulisa ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('bulisa', df1.clean$buddy), str_replace_all(df1.clean$buddy, "bulisa","Bulisa Masiga"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('dosa ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('dosa', df1.clean$buddy), str_replace_all(df1.clean$buddy, "dosa","Dosa Mshenga"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('dzivula ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('dzivula', df1.clean$buddy), str_replace_all(df1.clean$buddy, "dzivula","Dzivula Gube"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('florenske ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('florenske', df1.clean$buddy), str_replace_all(df1.clean$buddy, "florenske","Florenske Bremer"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('husna ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('husna', df1.clean$buddy), str_replace_all(df1.clean$buddy, "husna","Husna Bakhami"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('idris harun', df1.clean$buddy),  df1.clean$buddy,
+  ifelse(grepl('idris h', df1.clean$buddy), str_replace_all(df1.clean$buddy, "idris h", "Idris Harun"),
+  ifelse(grepl('idris a', df1.clean$buddy), str_replace_all(df1.clean$buddy, "idris a", "Idris Ali"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('yu ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('yu', df1.clean$buddy), str_replace_all(df1.clean$buddy, "yu","Yu Bernads"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mwalimu ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mwalimu', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mwalimu","Mwalimu Athumani"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('sjors ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('sjors', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sjors","Sjors Hartsuiker"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('lara ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('lara', df1.clean$buddy), str_replace_all(df1.clean$buddy, "lara","Lara Diesbecq"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mert ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mert', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mert","Mert Gokalp"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mbaya ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mbaya', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mbaya","Mbaya Malindi"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('nicole ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('nicole', df1.clean$buddy), str_replace_all(df1.clean$buddy, "nicole","Nicole Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('pia ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('pia', df1.clean$buddy), str_replace_all(df1.clean$buddy, "pia","Pia Ditzel"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('said shee', df1.clean$buddy), df1.clean$buddy,
+  ifelse(grepl('said', df1.clean$buddy), str_replace_all(df1.clean$buddy, "said","Said Ngonga"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('leah ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('leah', df1.clean$buddy), str_replace_all(df1.clean$buddy, "leah","Leah Maine"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('sara ', df1.clean$buddy), df1.clean$buddy,
+                   ifelse(grepl('sarah ', df1.clean$buddy), df1.clean$buddy,
+                   ifelse(grepl('sarah', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sarah","Sarah Kilifi"), ifelse(grepl('sara', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sara","Sara Sottoriva"), df1.clean$buddy))))
+df1.clean$buddy <- ifelse(grepl('jaden ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('jaden', df1.clean$buddy), str_replace_all(df1.clean$buddy, "jaden","Jaden Diani"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('kiki ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('kiki', df1.clean$buddy), str_replace_all(df1.clean$buddy, "kiki","Kiki Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('malumbo pp', df1.clean$buddy), str_replace_all(df1.clean$buddy, "malumbo pp", "Mwajandua Malumbo"),
+                   ifelse(grepl('malumbo ', df1.clean$buddy), df1.clean$buddy,
+                   ifelse(grepl('malumbo', df1.clean$buddy), str_replace_all(df1.clean$buddy, "malumbo", "Mwajandua Malumbo"),  df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('melissa ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('melissa', df1.clean$buddy), str_replace_all(df1.clean$buddy, "melissa","Melissa Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('alex ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('alex', df1.clean$buddy), str_replace_all(df1.clean$buddy, "alex","Alex Russia"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('shazad ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('shazad', df1.clean$buddy), str_replace_all(df1.clean$buddy, "shazad","Shazad Kasmani"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('alphany ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('alphany', df1.clean$buddy), str_replace_all(df1.clean$buddy, "alphany","Alphany Nass"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('annelies ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('annelies', df1.clean$buddy), str_replace_all(df1.clean$buddy, "annelies","Annelies de Jong"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('georgia ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('georgia', df1.clean$buddy), str_replace_all(df1.clean$buddy, "georgia","Georgia Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('gian lu ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('gian lu', df1.clean$buddy), str_replace_all(df1.clean$buddy, "gian lu","Gian Lu Dado"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('kurt ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('kurt', df1.clean$buddy), str_replace_all(df1.clean$buddy, "kurt","Kurt Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('tula ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('tula', df1.clean$buddy), str_replace_all(df1.clean$buddy, "tula","Tula Cordio"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('violeta ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('violeta', df1.clean$buddy), str_replace_all(df1.clean$buddy, "violeta","Violeta Onland"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('yasmin ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('yasmin', df1.clean$buddy), str_replace_all(df1.clean$buddy, "yasmin","Yasmin Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('aaron ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('aaron', df1.clean$buddy), str_replace_all(df1.clean$buddy, "aaron","Aaron Diani"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('anabel ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('anabel', df1.clean$buddy), str_replace_all(df1.clean$buddy, "anabel","Anabel Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('andrew ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('andrew', df1.clean$buddy), str_replace_all(df1.clean$buddy, "andrew","Andrew Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('anniek ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('anniek', df1.clean$buddy), str_replace_all(df1.clean$buddy, "anniek","Anniek Vos"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('luc ', df1.clean$buddy), df1.clean$buddy,
+                   ifelse(grepl('lucy', df1.clean$buddy), str_replace_all(df1.clean$buddy, "lucy","Lucy Guest"),
+                   ifelse(grepl('luc', df1.clean$buddy), str_replace_all(df1.clean$buddy, "luc","Luc Visser"), df1.clean$buddy)))
+df1.clean$buddy <- ifelse(grepl('swaleh ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('swaleh', df1.clean$buddy), str_replace_all(df1.clean$buddy, "swaleh","Swaleh Aboud"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('swaleh ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('swaleh', df1.clean$buddy), str_replace_all(df1.clean$buddy, "swaleh","Swaleh Aboud"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('claire ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('claire', df1.clean$buddy), str_replace_all(df1.clean$buddy, "claire","Claire Barr"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('sasha ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('sasha', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sasha","Sasha Koning"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('sam volunteer', df1.clean$buddy), str_replace_all(df1.clean$buddy, "sam volunteer","Sam Montforts"), df1.clean$buddy)
+df1.clean$buddy <- ifelse(grepl('vera ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('vera', df1.clean$buddy), str_replace_all(df1.clean$buddy, "vera","Vera Hartman"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('yvonne ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('yvonne', df1.clean$buddy), str_replace_all(df1.clean$buddy, "yvonne","Yvonne Muyia"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('hamisi ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('hamisi', df1.clean$buddy), str_replace_all(df1.clean$buddy, "hamisi","Mohamed Tashwish"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('karel ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('karel', df1.clean$buddy), str_replace_all(df1.clean$buddy, "karel","Karel Volunteer"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('nob ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('nob', df1.clean$buddy), str_replace_all(df1.clean$buddy, "nob","Nob Group"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mishal ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mishal', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mishal","Mishal Gudka"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('annemiek ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('annemiek', df1.clean$buddy), str_replace_all(df1.clean$buddy, "annemiek","Annemiek Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('freek ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('freek', df1.clean$buddy), str_replace_all(df1.clean$buddy, "freek","Freek Heiduikers"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('lorenzo ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('lorenzo', df1.clean$buddy), str_replace_all(df1.clean$buddy, "lorenzo","Lorenzo Malindi"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('teun ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('teun', df1.clean$buddy), str_replace_all(df1.clean$buddy, "teun","Teun Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('omar salim', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('salim', df1.clean$buddy), str_replace_all(df1.clean$buddy, "salim", "Omar Salim"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('juliet ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('juliet', df1.clean$buddy), str_replace_all(df1.clean$buddy, "juliet","Juliet Karisa"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('niels ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('niels', df1.clean$buddy), str_replace_all(df1.clean$buddy, "niels","Niels Guest"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('azim ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('azim', df1.clean$buddy), str_replace_all(df1.clean$buddy, "azim","Azim Diani"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('brian ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('brian', df1.clean$buddy), str_replace_all(df1.clean$buddy, "brian","Brian Biwott"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('dennis ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('dennis', df1.clean$buddy), str_replace_all(df1.clean$buddy, "dennis","Dennis DM"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('angela ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('angela', df1.clean$buddy), str_replace_all(df1.clean$buddy, "angela","Angela Nairobi"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('petra ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('petra', df1.clean$buddy), str_replace_all(df1.clean$buddy, "petra","Petra NOB"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('jesse ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('jesse', df1.clean$buddy), str_replace_all(df1.clean$buddy, "jesse","Jesse de Bont"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('mwanaisha ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('mwanaisha', df1.clean$buddy), str_replace_all(df1.clean$buddy, "mwanaisha","Mwanaisha Musa"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('chenchen ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('chenchen', df1.clean$buddy), str_replace_all(df1.clean$buddy, "chenchen","Chenchen Diani"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('luuk ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('luuk', df1.clean$buddy), str_replace_all(df1.clean$buddy, "luuk","Luuk Lutjeboer"), df1.clean$buddy))
+df1.clean$buddy <- ifelse(grepl('max ', df1.clean$buddy), df1.clean$buddy,
+ ifelse(grepl('max', df1.clean$buddy), str_replace_all(df1.clean$buddy, "max","Max Robbe"), df1.clean$buddy))
+
+## Back to capitalization
+df1.clean$buddy <- gsub("(^|[[:space:]])([[:alpha:]])", "\\1\\U\\2",
+     df1.clean$buddy,
+     perl = TRUE)
+
+## Split each buddy in separate column
+df1.clean$buddy <- str_replace_all(df1.clean$buddy, ";",",") # Update old buddy separator
+df1.clean <- df1.clean %>% separate(buddy, c("Buddy.1", "Buddy.2", "Buddy.3", "Buddy.4", "Buddy.5", "Buddy.6", "Buddy.7", "Buddy.8", "Buddy.9"), c(","))
+
+# Overview of all buddies
+## Organize dataframe
+buddylist <- data.frame(Buddy = unlist(df1.clean[15:23]))
+buddylist <- as.data.frame(buddylist[!apply(is.na(buddylist) | buddylist == "", 1, all),])
+colnames(buddylist) <- "Buddy"
+buddylist <- buddylist %>% mutate(Buddy = str_squish(Buddy)) # remove white spaces
+
+# Count dives for each buddy
+buddycount  <- buddylist %>%
+        dplyr::group_by(Buddy) %>%
+        dplyr::tally()
+colnames(buddycount) <- c("Buddy", "Dive.count")
+
+buddycount$Dive.perc <- buddycount$Dive.count/sum(buddycount$Dive.count)*100
+buddycount <- buddycount[rev(order(buddycount$Dive.perc)),]
+buddycount$Buddy.count <- paste(buddycount$Buddy, " (", buddycount$Dive.count, ")", sep = "")
+
+# Set all buddies contribution less than 0.5 of dives to 'Others'
+#buddycount$Buddy <- ifelse(buddycount$Dive.perc < 0.5, "Others", buddycount$Buddy)
+# And sum these Others together
+#buddysum <- data_summary(buddycount, varname = "Dive.count", groupnames = c("Buddy"))
+
+# Split comment section into categories
+df1.clean$notes <- tolower(df1.clean$notes)
+df1.clean.sep <- df1.clean
+
+df1.clean.sep$notes = str_replace_all(df1.clean.sep$notes, '^na;', 'na;na;'); # Add omitted Activity for NA dives
+df1.clean.sep$notes <- str_replace_all(df1.clean.sep$notes, "fun;", "fun; na;") 
+df1.clean.sep$notes <- str_replace_all(df1.clean.sep$notes, "nurseries","nursery")
+df1.clean.sep <- df1.clean.sep %>% separate(notes, c("Type", "Activity", "Conditions", "Observations"), c(";"))
+
+# Organize Type of dive
+df1.clean.sep$Type <- as.factor(df1.clean.sep$Type)
+df1.clean.sep$Type <- recode_factor(df1.clean.sep$Type, 
+                                    deployment = "Deployment",  nursery = "Nursery", monitoring = "Monitoring",
+                                    training = "Training", fun = "Fun", na = "Other")
+df1.clean.sep$Type <- factor(df1.clean.sep$Type, levels = c("Deployment", "Nursery", "Monitoring",
+                                                               "Training", "Fun", "Other"))
+
+# Organize dive Activity
+df1.clean.sep <- df1.clean.sep %>%  mutate(Activity_short = "", .after=Activity)
+df1.clean.sep$Activity_short <- ifelse(grepl('^ na',  df1.clean.sep$Activity), "Other",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('^na',  df1.clean.sep$Activity), "Other",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('Deployment',  df1.clean.sep$Type), "Deploying ARs",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('Nursery',  df1.clean.sep$Type), "Cleaning structures",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('Monitoring',  df1.clean.sep$Type), "Mapping",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('Fun',  df1.clean.sep$Type), "Explore",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('replac',  df1.clean.sep$Activity), "Nursery maintenance",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('plac',  df1.clean.sep$Activity), "Placing structures",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('check',  df1.clean.sep$Activity), "Mapping",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('clean',  df1.clean.sep$Activity), "Cleaning structures",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('collect',  df1.clean.sep$Activity), "Collecting corals",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('measurement',  df1.clean.sep$Activity), "Growth measurements",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('condition',  df1.clean.sep$Activity), "Abiotic measurements",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('coral id',  df1.clean.sep$Activity) | grepl('fish id',  df1.clean.sep$Activity) |
+                                         grepl('fishid',  df1.clean.sep$Activity), "Taxonomy",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('deploy',  df1.clean.sep$Activity), "Deploying ARs",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('divemaster',  df1.clean.sep$Activity) | grepl('open water',  df1.clean.sep$Activity) |
+                                         grepl('advanced',  df1.clean.sep$Activity) | grepl('rescue',  df1.clean.sep$Activity), "Training",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('fill',  df1.clean.sep$Activity), "Filling corals",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('maint',  df1.clean.sep$Activity), "Maintenance",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('map',  df1.clean.sep$Activity), "Mapping",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('outplant',  df1.clean.sep$Activity), "Outplanting corals",  df1.clean.sep$Activity_short)
+
+df1.clean.sep$Activity_short <- ifelse(grepl('benthic survey', df1.clean.sep$Activity), "Benthic surveys", df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(grepl('fish survey',  df1.clean.sep$Activity), "Fish surveys",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(df1.clean.sep$Type == "Nursery" & grepl('Maintenance',  df1.clean.sep$Activity_short), "Structure maintenance",  df1.clean.sep$Activity_short)
+df1.clean.sep$Activity_short <- ifelse(df1.clean.sep$Type == "Deployment" & grepl('Maintenance',  df1.clean.sep$Activity_short), "AR maintenance",  df1.clean.sep$Activity_short)
+
+# Overview of all activities
+# Count dives for each buddy
+actilist <- df1.clean.sep[,c('Type','Activity_short')]
+
+acticount  <- actilist %>%
+        dplyr::group_by(Type, Activity_short) %>%
+        dplyr::tally()
+colnames(acticount) <- c("Type", "Activity", "Dive.count")
+
+acticount$Dive.perc <- acticount$Dive.count/sum(acticount$Dive.count)*100
+acticount <- acticount[rev(order(acticount$Dive.perc)),]
+acticount$Acti.count <- paste(acticount$Activity, " (", acticount$Dive.count, ")", sep = "")
+
+# Overview for types overall
+typecount <- actilist %>%
+        dplyr::group_by(Type) %>%
+        dplyr::tally()
+
+acticount <- left_join(acticount, typecount, by = "Type")
+acticount$Type.count <- paste(acticount$Type, " (", acticount$n, ")", sep = "")
+
+
+# Organizing observations
+
+df1.clean.sep$Observations <- tolower(df1.clean.sep$Observations)
+df1.clean.sep <- df1.clean.sep %>% separate(Observations, into = c("Obs.1", "Obs.2", "Obs.3", "Obs.4", "Obs.5", "Obs.6", "Obs.7", "Obs.8", "Obs.9", "Obs.10", "Obs.11", "Obs.12", "Obs.13", "Obs.14", "Obs.15", "Obs.16"), sep = c("\\."), remove = F)
+## Special fish
+df1.clean.sep$Frogfish <- ""
+df1.clean.sep$Histrio <- ""
+df1.clean.sep$Hiphis <- ""
+df1.clean.sep$Hipkud <- ""
+df1.clean.sep$Seahorse <- ""
+df1.clean.sep$Pipehorse <- ""
+df1.clean.sep$Ghostpipe <- ""
+df1.clean.sep$Pegasus <- ""
+df1.clean.sep$Leaf <- ""
+df1.clean.sep$Wasp <- ""
+df1.clean.sep$Rhino <- ""
+df1.clean.sep$Dacori <- ""
+df1.clean.sep$Stone <- ""
+df1.clean.sep$Walkman <- ""
+df1.clean.sep$Snakeel <- ""
+df1.clean.sep$Crocodile <- ""
+df1.clean.sep$Annoyingfish <- ""
+## Big fish
+df1.clean.sep$Epilan <- ""
+df1.clean.sep$Cobia <- ""
+df1.clean.sep$Napoleon <- ""
+df1.clean.sep$Barracuda <- ""
+df1.clean.sep$Dolphin <- ""
+## Elasmo
+df1.clean.sep$Torpedo <- ""
+df1.clean.sep$Shark <- ""
+df1.clean.sep$Guitarray <- ""
+df1.clean.sep$Ray <- ""
+df1.clean.sep$Eagle <- ""
+## Inverts
+df1.clean.sep$Harlequin <- ""
+df1.clean.sep$COTS <- ""
+df1.clean.sep$Triton <- ""
+df1.clean.sep$Lobster <- ""
+df1.clean.sep$Octo <- ""
+df1.clean.sep$Sepia <- ""
+df1.clean.sep$Squid <- ""
+df1.clean.sep$Nudis <- ""
+df1.clean.sep$Flats <- ""
+## Turtles
+df1.clean.sep$Chemyd <- ""
+df1.clean.sep$Ereimb <- ""
+df1.clean.sep$Turtle <- ""
+
+## Special fish
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Frogfish <- ifelse(grepl('frog',  df1.clean.sep[[obsx]]) | grepl('antennarius',  df1.clean.sep[[obsx]]) , str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Frogfish)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('frog',  df1.clean.sep[[obsx]]) | grepl('antennarius',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Histrio <- ifelse(grepl('histrio',  df1.clean.sep[[obsx]]) | grepl('sargassum f',  df1.clean.sep[[obsx]]) , str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Histrio)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('histrio',  df1.clean.sep[[obsx]]) | grepl('sargassum f',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Hiphis <- ifelse(grepl('hip h',  df1.clean.sep[[obsx]]) | grepl('strix',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Hiphis)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('hip h',  df1.clean.sep[[obsx]]) | grepl('strix',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Hipkud <- ifelse(grepl('hip k',  df1.clean.sep[[obsx]]) | grepl('kud',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Hipkud)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('hip k',  df1.clean.sep[[obsx]]) | grepl('kud',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Seahorse <- ifelse(grepl('seah',  df1.clean.sep[[obsx]]) | grepl('sea h',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Seahorse)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('seah',  df1.clean.sep[[obsx]]) | grepl('sea h',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Pipehorse <- ifelse(grepl('pipeh',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Pipehorse)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('pipeh',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Ghostpipe <- ifelse(grepl('ghost',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Ghostpipe)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('ghost',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Pegasus <- ifelse(grepl('pegasus',  df1.clean.sep[[obsx]]) | grepl('dragon',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Pegasus)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('pegasus',  df1.clean.sep[[obsx]]) | grepl('dragon',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Dacori <- ifelse(grepl('dac ori',  df1.clean.sep[[obsx]]) | grepl('gurnard',  df1.clean.sep[[obsx]]) | grepl('dactyloptena',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Dacori)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('dac ori',  df1.clean.sep[[obsx]]) | grepl('gurnard',  df1.clean.sep[[obsx]]) | grepl('dactyloptena',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Stone <- ifelse(grepl('stone',  df1.clean.sep[[obsx]]) | grepl('syn ver',  df1.clean.sep[[obsx]]) | grepl('syna',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Stone)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('stone',  df1.clean.sep[[obsx]]) | grepl('syn ver',  df1.clean.sep[[obsx]]) | grepl('syna',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Walkman <- ifelse(grepl('walk',  df1.clean.sep[[obsx]]) | grepl('ini fil',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Walkman)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('walk',  df1.clean.sep[[obsx]]) | grepl('ini fil',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Leaf <- ifelse(grepl('leaf',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Leaf)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('leaf',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Wasp <- ifelse(grepl('wasp',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Wasp)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('wasp',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Rhino <- ifelse(grepl('rhinopias',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Rhino)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('rhinopias',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Snakeel <- ifelse(grepl('snake',  df1.clean.sep[[obsx]]) | grepl('myr',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Snakeel)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('snake',  df1.clean.sep[[obsx]]) | grepl('myr',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Crocodile <- ifelse(grepl('croc',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Crocodile)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('croc',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Annoyingfish <- ifelse(grepl('annoy',  df1.clean.sep[[obsx]]), "1", df1.clean.sep$Annoyingfish)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('annoy',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+## Big fish
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Napoleon <- ifelse(grepl('napoleon',  df1.clean.sep[[obsx]]) | grepl('che und',  df1.clean.sep[[obsx]]) | grepl('undulatus',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Napoleon)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('napoleon',  df1.clean.sep[[obsx]]) | grepl('che und',  df1.clean.sep[[obsx]]) | grepl('undulatus',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Barracuda <- ifelse(grepl('barracuda',  df1.clean.sep[[obsx]]) | grepl('sph',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Barracuda)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('barracuda',  df1.clean.sep[[obsx]]) | grepl('sph',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Epilan <- ifelse(grepl('epi lan',  df1.clean.sep[[obsx]]) | grepl('giant g',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Epilan)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('epi lan',  df1.clean.sep[[obsx]]) | grepl('giant g',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Dolphin <- ifelse(grepl('dolphin',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Dolphin)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('dolphin',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Cobia <- ifelse(grepl('cobia',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Cobia)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('cobia',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+## Elasmo
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Torpedo <- ifelse(grepl('torp',  df1.clean.sep[[obsx]]) | grepl('electric',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Torpedo)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('torp',  df1.clean.sep[[obsx]]) | grepl('electric',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Shark <- ifelse(grepl('tip',  df1.clean.sep[[obsx]]) | grepl('tri obe',  df1.clean.sep[[obsx]]) | grepl('shark',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Shark)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('tip',  df1.clean.sep[[obsx]]) | grepl('tri obe',  df1.clean.sep[[obsx]]) | grepl('shark',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Guitarray <- ifelse(grepl('guitar',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Guitarray)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('guitar',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Ray <- ifelse(grepl('stingray',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Ray)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('stingray',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Eagle <- ifelse(grepl('eagle',  df1.clean.sep[[obsx]]) | grepl('devil',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Eagle)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('eagle',  df1.clean.sep[[obsx]]) | grepl('devil',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+## Inverts
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Lobster <- ifelse(grepl('lobster',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Lobster)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('lobster',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Harlequin <- ifelse(grepl('harlequin',  df1.clean.sep[[obsx]]) | grepl('hym',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Harlequin)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('harlequin',  df1.clean.sep[[obsx]]) | grepl('hym',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$COTS <- ifelse(grepl('cots',  df1.clean.sep[[obsx]]) | grepl('acanthaster',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$COTS)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('cots',  df1.clean.sep[[obsx]]) | grepl('acanthaster',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Triton <- ifelse(grepl('triton',  df1.clean.sep[[obsx]]) | grepl('charonia',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Triton)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('triton',  df1.clean.sep[[obsx]]) | grepl('charonia',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Octo <- ifelse(grepl('octo',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Octo)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('octo',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Sepia <- ifelse(grepl('sepia',  df1.clean.sep[[obsx]]) | grepl('cuttle',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Sepia)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('sepia',  df1.clean.sep[[obsx]]) | grepl('cuttle',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Squid <- ifelse(grepl('squid',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Squid)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('squid',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Nudis <- ifelse(grepl('nudi',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Nudis)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('nudi',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Flats <- ifelse(grepl('flat',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Flats)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('flat',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+## Turtles
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Chemyd <- ifelse(grepl('che myd',  df1.clean.sep[[obsx]]) | grepl('green',  df1.clean.sep[[obsx]]) | grepl('chelonia',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Chemyd)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('che myd',  df1.clean.sep[[obsx]]) | grepl('green',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Ereimb <- ifelse(grepl('ere imb',  df1.clean.sep[[obsx]]) | grepl('hawk',  df1.clean.sep[[obsx]]) | grepl('imbricata',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Ereimb)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('ere imb',  df1.clean.sep[[obsx]]) | grepl('hawk',  df1.clean.sep[[obsx]]) | grepl('imbricata',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Turtle <- ifelse(grepl('turtle',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Turtle)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('turtle',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+## Leftovers
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep[[obsx]] <- ifelse(grepl('spanish',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+  df1.clean.sep[[obsx]] <- ifelse(grepl('hex',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+  df1.clean.sep[[obsx]] <- ifelse(grepl('hare',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+write_xlsx(df1.clean.sep, "Excel.xlsx")
+
+```
+
+
+# Graphs
+```{r graphs}
+
+# --- DIVE BUDDIES ---
+
+# Title summaries
+dives.tot <- as.numeric(nrow(df1.clean))
+buddies.tot <- as.numeric(nrow(buddycount))
+buddycount <- subset(buddycount, Buddy != "Anonymous")
+
+tiff(file="Buddies.tiff", width=17, height = 24, units="cm", res=1200, compression = "lzw")
+treemap(buddycount, index=c("Buddy.count"), vSize="Dive.count",  type="index",
+        inflate.labels = T, fontsize.labels = c(8), align.labels = c("center", "center"), fontcolor.labels = "#292929",
+        lowerbound.cex.labels = 0, palette = "Pastel2",
+        border.col=c("#FFFFFF","#F4F4F4"), border.lwds=c(2),
+        title= paste("Total buddies:", buddies.tot, "(total dives:", dives.tot, ")" ), fontsize.title= 18)
+dev.off()
+
+# --- DIVE ACTIVITIES ---
+
+tiff(file="Activities.tiff", width=23, height = 12, units="cm", res=1200, compression = "lzw")
+treemap(acticount, index=c("Type", "Acti.count"), vSize="Dive.count",  type="index",
+        inflate.labels = F, fontsize.labels = c(10, 10), align.labels = list(c("left", "top"),c( "centre", "center")),
+        fontcolor.labels = "#292929",
+        lowerbound.cex.labels = 0, palette = "Pastel2", bg.labels = c(0),
+       border.col=c("#FFFFFF"), border.lwds=c(2), overlap.labels = 0.95,
+        title= paste("Total dives:", dives.tot), fontsize.title= 24)
+dev.off()
+
+# --- DIVE TIME ---
+
+# Set parameters
+divetime.mean <- mean(df1.clean$duration)
+divetime.max <- plyr::round_any(max(df1.clean$duration), 1, ceiling)
+
+# Calculate range (i.e. number of) binwidths 
+bw <- (plyr::round_any(max(df1.clean$duration), 10, ceiling) - plyr::round_any(min(df1.clean$duration), 10, floor))/10
+# Get highest value to position label for the mean
+top <- max(table(cut(df1.clean$duration,seq(min(df1.clean$duration),max(df1.clean$duration),dist(range(df1.clean$duration))/bw)))) 
+
+ggplot(df1.clean, aes(duration, fill = duration))+
+  geom_histogram(binwidth = 10, boundary=0, show.legend = FALSE)+
+  labs(x = "Duration (min)", y = "Number of dives")+
+  ggtitle("Dive times")+
+  coord_cartesian(xlim = c(0, divetime.max*1.16), clip = 'off')+
+  stat_bin(binwidth = 10, boundary = 0, geom = "text", aes(label = ..count..) , vjust = -1, size = 2.5)+
+  geom_histogram(data = df1.clean, binwidth = 10, boundary = 0, aes(duration, fill = cut(duration, 100)), show.legend = FALSE)+
+  scale_fill_discrete(h = c(150, 300), c = 120, l = 70)+
+  geom_vline(aes(xintercept = mean(duration)), color="black", linetype="dotdash")+ 
+  annotate(geom = "text", x = divetime.mean, y = 20, 
+    label = paste("  Mean =", round_any(divetime.mean, 1, ceiling), "min"), hjust = 0, vjust = 1, size = 3.5, fontface = "bold")+
+  annotate(geom = "text", x = divetime.max, y = 20, 
+    label = paste("  Max =", divetime.max, "min"), hjust = 0, vjust = 1, size = 3.5, fontface = "bold")+
+  scale_x_continuous(expand = c(0,0), breaks = seq(0, 240, by = 10))+
+  scale_y_continuous(expand = c(0,0), limits = c(0, top*1.1))+
+  theme(axis.ticks.length.x = unit(c(-1,1), "mm"),
+        axis.ticks.length.y = unit(0, "mm"),
+        plot.background = element_rect(fill = "#FFFFFF"),
+        panel.background = element_rect(fill = "#FFFFFF"),
+        plot.margin = margin(c(5,10,10,15), "cm"),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        axis.title.x = element_text(size = 9, vjust = -2),
+        axis.text.x = element_text(size = 8, face = "bold", vjust = 0.5),
+        axis.title.y = element_text( size = 9, vjust = 4),
+        axis.text.y = element_text(size = 8, face = "bold", vjust = 0.4),
+        plot.title = element_text(hjust = 1, face = "bold", size = 14))
+ggsave("Dive times.tiff", width = 23, height = 10, units = "cm", dpi=1200, compression = "lzw")
+
+# --- DATES ---
+## YEAR - MONTH
+### Summarize per month
+df2.dates <- select(df1.clean, c('dive', 'date')) # Subset relevant data
+df2.dates$date <- as.POSIXct(df2.dates$date) # Set date in right format
+df2.dates$Year <- as.factor(lubridate::year(df2.dates$date)) # Split years into new column
+df2.dates$Month <- lubridate::month(df2.dates$date, label = TRUE, abbr = TRUE) # Split months into new column
+df2.dates$Month <-  forcats::fct_rev(df2.dates$Month) # Reverse order of months for logical plotting
+
+### Get sums per month, into new data frame
+df2.dates.month <- df2.dates %>% group_by(Year, Month) %>%
+  tally()
+
+### Get sums per year, into new data frame
+df2.dates.year <- df2.dates.month %>% group_by(Year) %>%
+  dplyr::summarise(n = sum(n))
+
+### Find year with maximum number of dives and the maximum number of dives
+year.nmax <- as.numeric(df2.dates.year$Year[df2.dates.year$n == max(df2.dates.year$n)]) # Max year - as order number
+n.yearmax <- as.numeric(max(df2.dates.year$n)) # Maximum number of dives in 1 year
+maxtext.year <- paste("Max = ", n.yearmax, sep = "")
+
+### Find month (and year) with maximum number of dives and find position in graph
+year.monthmax <- as.numeric(as.character(df2.dates.month$Year[df2.dates.month$n == max(df2.dates.month$n)])) # Year of max month
+year.monthmax.order <- as.numeric(df2.dates.month$Year[df2.dates.month$n == max(df2.dates.month$n)]) # Year (order) of max month
+month.monthmax <- as.character(df2.dates.month$Month[df2.dates.month$n == max(df2.dates.month$n)]) # Month of max
+month.monthmax.order <- as.numeric(df2.dates.month$Month[df2.dates.month$n == max(df2.dates.month$n)]) # Month (inverse order) max
+n.monthmax <- as.numeric(max(df2.dates.month$n)) # maximum number of dives in 1 month
+maxtext.month <- paste("Max = ", "\n", n.monthmax, sep="")
+
+df2.dates.month.max <- subset(df2.dates.month, Year == year.monthmax) # Create subset for the year of the max month
+df2.dates.month.max <- subset(df2.dates.month.max, Month >= month.monthmax) # Create subset for all earlier months in that year
+month.mintomax <- as.numeric(sum(df2.dates.month.max$n)) # Count all dives of that year so far (ie position on the y-axis)
+
+### Plot year - month
+  ggplot(df2.dates.month) +  
+      geom_bar(position = "stack", stat = "identity", aes(x = Year, y = n, fill = Month))+
+      labs(x = "", y = "Number of dives")+
+      scale_y_continuous(expand = c(0, 0), limits = c(0, 1.1*max(df2.dates.year$n)))+
+      scale_fill_manual(values = c("#D364E2", "#E193EF", "#FDC6FF", # Dec - Oct
+                                     "#E27964", "#EFB993", "#FFD5C6", # Sep - Jul
+                                     "#ACCA61", "#AEEF93", "#D6FED6", # Jun - Apr
+                                     "#5BB5D2", "#93D3EF", "#DFEBFF"))+ # Mar - Jan
+      theme(
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#000000"),
+        plot.background = element_rect(fill = "#000000"),
+        legend.background = element_rect(fill = "#000000"),
+        axis.text.x = element_text(size = 11, face = "bold", vjust = 0.5, colour = "white"),
+        axis.title.y = element_text( size = 14, vjust = 4, colour = "white"),
+        axis.text.y = element_text(size = 13, face = "bold", vjust = 0.4, colour = "white"),
+        legend.text = element_text(size = 12, colour = "white"),
+        legend.position = c(1.07, 0.5),
+        legend.key=element_rect(colour="#000000", size=2 ),
+        plot.margin = unit(c(1,2.5,0,0.6), "cm")
+      )+
+      annotate(geom="text", x=year.nmax , y=n.yearmax*1.05, label=maxtext.year, size=3, fontface="bold", colour="white")+
+      annotate(geom="text", x=year.monthmax.order, y=month.mintomax-(n.monthmax/2), label=maxtext.month,
+               size=2.5, fontface="bold", colour="black", fontface="bold")
+ggsave("Dive month year.tiff", width = 23, height = 10, units = "cm", dpi=1200, compression = "lzw")
+
+## MEAN - MONTH
+### Average over all years for month
+df2.dates.month.sum <- data_summary(df2.dates.month, varname = "n", groupnames = c("Month"))
+df2.dates.month.sum <- select(df2.dates.month.sum, c('Month', 'sum')) # Remove nonsense columns
+df2.dates.month.sum$Month <-  forcats::fct_rev(df2.dates.month.sum$Month) # Reverse order of months back
+
+### Plot mean - month
+  ggplot(df2.dates.month.sum) +  
+      geom_bar(stat = "identity", aes(x = Month, y = sum, fill = Month), show.legend = FALSE)+
+      labs(x = "", y = "Total number of dives")+
+      scale_y_continuous(expand = c(0, 0))+
+      scale_fill_manual(values = c("#DFEBFF", "#93D3EF", "#5BB5D2",
+                                     "#D6FED6", "#AEEF93", "#ACCA61", 
+                                     "#FFD5C6", "#EFB993", "#E27964", 
+                                     "#FDC6FF", "#E193EF", "#D364E2"))+ 
+      theme(
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#000000"),
+        plot.background = element_rect(fill = "#000000"),
+        axis.text.x = element_text(size = 11, face = "bold", vjust = 0.5, colour = "white"),
+        axis.title.y = element_text( size = 14, vjust = 4, colour = "white"),
+        axis.text.y = element_text(size = 13, face = "bold", vjust = 0.4, colour = "white"),
+        plot.margin = unit(c(1.2,1,0.2,1), "cm")
+        )
+ggsave("Dive month.tiff", width = 23, height = 10, units = "cm", dpi=1200, compression = "lzw")
+
+## MEAN - DAY
+df2.dates$Day <- lubridate::wday(df2.dates$date, label = TRUE, abbr = FALSE) # Split (week)days into new column
+df2.dates.day <- df2.dates %>% group_by(Day) %>%
+  tally()
+df2.dates.day$Day <- factor(df2.dates.day$Day, ordered = TRUE, 
+                            levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+### Plot mean - day
+  ggplot(df2.dates.day) +  
+      geom_bar(stat = "identity", aes(x = Day, y = n), fill="#B5F5F5")+
+      labs(x = "", y = "Total number of dives")+
+      scale_y_continuous(expand = c(0, 0))+
+      theme(
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#000000"),
+        plot.background = element_rect(fill = "#000000"),
+        axis.text.x = element_text(size = 11, face = "bold", vjust = 0.5, colour = "white"),
+        axis.title.y = element_text( size = 14, vjust = 4, colour = "white"),
+        axis.text.y = element_text(size = 13, face = "bold", vjust = 0.4, colour = "white"),
+        plot.margin = unit(c(1.2,1,0.2,1), "cm")
+        )
+ggsave("Dive day.tiff", width = 23, height = 10, units = "cm", dpi=1200, compression = "lzw")
+
+## MEAN - HOUR
+df2.dates$Hour <- lubridate::hour(df2.dates$date) # Split hour of entry into new column
+df2.dates.hour <- df2.dates %>% group_by(Hour) %>%
+  tally()
+
+### Plot mean - hour
+  ggplot(df2.dates.hour)+  
+      geom_bar(stat = "identity", aes(x = Hour, y = n), fill="#B5F5F5")+
+      labs(x = "Hour of entry", y = "Total number of dives")+
+      scale_x_continuous(labels = seq(1, 24, by=1), breaks = seq(1, 24, by=1), limits = c(1, 24))+
+      scale_y_continuous(expand = c(0.02,1))+
+      theme(
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#000000"),
+        plot.background = element_rect(fill = "#000000"),
+        axis.title.x = element_text( size = 14, vjust = -1, colour = "white"),
+        axis.text.x = element_text(size = 11, face = "bold", vjust = 0.5, colour = "white"),
+        axis.title.y = element_text( size = 14, vjust = 4, colour = "white"),
+        axis.text.y = element_text(size = 13, face = "bold", vjust = 0.4, colour = "white"),
+        plot.margin = unit(c(1.2,1,1,1), "cm")
+        )
+ggsave("Dive hour.tiff", width = 23, height = 10, units = "cm", dpi=1200, compression = "lzw")
+
+
+# --- DEPTH ---
+# TO DO: maybe make background a gradient, and keep bars a single colour (white/black)?
+
+# Set parameters
+depth.max <- plyr::round_any(max(df1.clean$depth), 1, ceiling)
+
+ggplot(df1.clean, aes(depth, fill = depth))+
+  geom_histogram(binwidth = 2, boundary=0, show.legend = FALSE)+
+  labs(x = "Depth (m)", y = "Number of dives")+
+  coord_cartesian(xlim = c(0, depth.max*1.16), clip = 'off')+
+  stat_bin(binwidth = 2, boundary = 0, geom = "text", aes(label = ..count..) , vjust = 0.4, hjust = -0.3, size = 2)+
+  geom_histogram(data = df1.clean, binwidth = 2, boundary = 0, aes(depth, fill = cut(depth, 300)), show.legend = FALSE)+
+  scale_fill_manual(values = sequential_hcl(207, h = c(190, 270), c = c(55, 30), l = c(92,20)))+
+  annotate(geom = "text", x = depth.max, y = 20, 
+    label = paste("  Max =", depth.max, "m"), hjust = 0.3, vjust = 1, size = 3)+
+  scale_x_continuous(breaks = seq(0, 50, by = 10))+
+  scale_y_continuous(expand = c(0, NA), limits = c(0, 333), position = "right")+
+  theme(axis.ticks.length.x = unit(c(-1,1), "mm"),
+        axis.ticks.length.y = unit(0, "mm"),
+        plot.background = element_rect(fill = "#FFFFFF"),
+        panel.background = element_rect(fill = "#FFFFFF"),
+        plot.margin = margin(c(5,10,10,15), "cm"),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        axis.title.x = element_text(size = 11, hjust = 0.9),
+        axis.text.x = element_text(size = 10, vjust = 0.5),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_text( size = 10, face = "bold", vjust = 4),
+        axis.text.y = element_text(size = 9, face = "bold", vjust = 0.4))+
+  coord_flip()+
+  scale_x_reverse()
+ggsave("Dive depths.tiff", width = 12, height = 18, units = "cm", dpi=1200, compression = "lzw")
+
+# Background gradient
+reds <- sequential_hcl(195, h = c(230, 270), c = c(75, 30), l = c(75,20))
+g <- rasterGrob(reds, width = unit(1, "npc"), height = unit(1, "npc"), interpolate = TRUE)
+
+Fish <- readPNG("Fish.png")
+Fish <- rasterGrob(Fish, interpolate=TRUE)
+Fish$width <- unit(1, "npc") 
+    Fish$height <- unit(1, "npc")
+    
+Octo <- readPNG("Octopus.png")
+Octo <- rasterGrob(Octo, interpolate=TRUE)
+Octo$width <- unit(1, "npc") 
+    Octo$height <- unit(1, "npc")
+
+p <- ggplot(df1.clean, aes(depth, fill = depth))+
+  geom_histogram(binwidth = 2, boundary=0, show.legend = FALSE)+
+  labs(x = "Depth (m)", y = "Number of dives")+
+  coord_cartesian(xlim = c(0, depth.max*1.16), clip = 'off')+
+  stat_bin(binwidth = 2, boundary = 0, geom = "text", aes(label = ..count..) , vjust = 0.4, hjust = -0.3, size = 2, colour = "white")+
+  geom_histogram(data = df1.clean, binwidth = 2, boundary = 0, aes(depth, fill = cut(depth, 300)), show.legend = FALSE)+
+  scale_fill_manual(values = sequential_hcl(207, h = c(180, 220), c = c(20, 50), l = c(97, 75)))+
+  annotate(geom = "text", x = depth.max, y = 20, colour = "white",
+    label = paste("  Max =", depth.max, "m"), hjust = 0.3, vjust = 1, size = 3)+
+  scale_x_continuous(breaks = seq(0, 50, by = 10))+
+  scale_y_continuous(expand = c(0, NA), limits = c(0, 333), position = "right")+
+  theme_base() + 
+  theme(panel.background=element_blank(),
+        panel.border = element_blank(),
+        plot.background=element_blank(),
+        text = element_text(colour="white"),
+        line = element_line(colour="white"),
+        axis.ticks.length.x = unit(c(-1,1), "mm"),
+        axis.ticks.length.y = unit(0, "mm"),
+        axis.title.x = element_text(size = 11, hjust = 0.9, face = "bold"),
+        axis.text.x = element_text(size = 10, vjust = 0.5, face = "bold"),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_text( size = 10, face = "bold", vjust = 4),
+        axis.text.y = element_text(size = 10, face = "bold", vjust = 0.4),
+        plot.margin = margin(c(5,10,10,15), "cm")
+        )+
+  annotation_custom(Fish, xmin=-22, xmax=-20, ymin=250, ymax=280)+
+  annotation_custom(Octo, xmin=-42, xmax=-38, ymin=100, ymax=150)+
+  theme()+
+  coord_flip()+
+  scale_x_reverse()
+
+tiff(file="Dive depths_Gradient.tiff", width = 12, height = 18, units = "cm", res=1200, compression = "lzw")
+
+
+grid.newpage()
+grid.draw(g)
+print(p, newpage = FALSE)
+
+dev.off()
+
+```
+
