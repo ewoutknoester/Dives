@@ -110,7 +110,7 @@ df1.clean$surfacetemp <- ifelse(df1.clean$surfacetemp  == 0, NA, df1.clean$surfa
 df1.clean$buddy <- tolower(df1.clean$buddy)
 
 ## Subset based on location
-df1.clean <- subset(df1.clean, place == "Shimoni" | place == "Kisite" | place == "Diani" | place == "Flic en Flac" | place == "Jambiani" | place == "Kilifi" | place == "Lamu" | place == "Mafia" | place == "Malindi" | place == "Mnemba" | place == "Mombasa" | place == "Msambweni" | place == "Thanda" | place == "Watamu" | place == "Moheli")
+#df1.clean <- subset(df1.clean, place == "Shimoni" | place == "Kisite" | place == "Diani" | place == "Flic en Flac" | place == "Jambiani" | place == "Kilifi" | place == "Lamu" | place == "Mafia" | place == "Malindi" | place == "Mnemba" | place == "Mombasa" | place == "Msambweni" | place == "Thanda" | place == "Watamu" | place == "Moheli")
 
 ## Standardize names
 df1.clean$buddy <- ifelse(grepl('michelle ', df1.clean$buddy), df1.clean$buddy,
@@ -502,47 +502,45 @@ df1.clean.sep$Observations <- tolower(df1.clean.sep$Observations)
 df1.clean.sep <- df1.clean.sep %>% separate(Observations, into = c("Obs.1", "Obs.2", "Obs.3", "Obs.4", "Obs.5", "Obs.6", "Obs.7", "Obs.8", "Obs.9", "Obs.10", "Obs.11", "Obs.12", "Obs.13", "Obs.14", "Obs.15", "Obs.16"), sep = c("\\."), remove = F)
 ## Special fish
 df1.clean.sep$Frogfish <- ""
-df1.clean.sep$Histrio <- ""
-df1.clean.sep$Hiphis <- ""
-df1.clean.sep$Hipkud <- ""
+df1.clean.sep$Spiny.seahorse <- ""
+df1.clean.sep$Common.seahorse <- ""
 df1.clean.sep$Seahorse <- ""
 df1.clean.sep$Pipehorse <- ""
-df1.clean.sep$Ghostpipe <- ""
-df1.clean.sep$Pegasus <- ""
-df1.clean.sep$Leaf <- ""
-df1.clean.sep$Wasp <- ""
-df1.clean.sep$Rhino <- ""
-df1.clean.sep$Dacori <- ""
-df1.clean.sep$Stone <- ""
-df1.clean.sep$Walkman <- ""
-df1.clean.sep$Snakeel <- ""
-df1.clean.sep$Crocodile <- ""
-df1.clean.sep$Annoyingfish <- ""
+df1.clean.sep$Ghost.pipefish <- ""
+df1.clean.sep$Sea.moth <- ""
+df1.clean.sep$Leaffish <- ""
+df1.clean.sep$Waspfish <- ""
+df1.clean.sep$Rhinopias <- ""
+df1.clean.sep$Flying.gurnard <- ""
+df1.clean.sep$Stonefish <- ""
+df1.clean.sep$Indian.ocean.walkman <- ""
+df1.clean.sep$Snake.eel <- ""
+df1.clean.sep$Crocodilefish <- ""
+df1.clean.sep$Ribbon.eel <- ""
 ## Big fish
-df1.clean.sep$Epilan <- ""
+df1.clean.sep$Giant.grouper <- ""
 df1.clean.sep$Cobia <- ""
-df1.clean.sep$Napoleon <- ""
-df1.clean.sep$Barracuda <- ""
+df1.clean.sep$Napoleon.wrasse <- ""
 df1.clean.sep$Dolphin <- ""
 ## Elasmo
-df1.clean.sep$Torpedo <- ""
+df1.clean.sep$Torpedo.ray <- ""
 df1.clean.sep$Shark <- ""
 df1.clean.sep$Guitarray <- ""
 df1.clean.sep$Ray <- ""
-df1.clean.sep$Eagle <- ""
+df1.clean.sep$Eagle.ray <- ""
 ## Inverts
-df1.clean.sep$Harlequin <- ""
+df1.clean.sep$Harlequin.shrimp <- ""
 df1.clean.sep$COTS <- ""
+df1.clean.sep$Culcita <- ""
 df1.clean.sep$Triton <- ""
 df1.clean.sep$Lobster <- ""
-df1.clean.sep$Octo <- ""
+df1.clean.sep$Octopus <- ""
 df1.clean.sep$Sepia <- ""
-df1.clean.sep$Squid <- ""
-df1.clean.sep$Nudis <- ""
-df1.clean.sep$Flats <- ""
+df1.clean.sep$Nudibranch <- ""
+df1.clean.sep$Flatworm <- ""
 ## Turtles
-df1.clean.sep$Chemyd <- ""
-df1.clean.sep$Ereimb <- ""
+df1.clean.sep$Green.turtle <- ""
+df1.clean.sep$Hawksbill.turtle <- ""
 df1.clean.sep$Turtle <- ""
 
 ## Special fish
@@ -554,19 +552,13 @@ for (x in 1:16) {
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Histrio <- ifelse(grepl('histrio',  df1.clean.sep[[obsx]]) | grepl('sargassum f',  df1.clean.sep[[obsx]]) , str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Histrio)
-  df1.clean.sep[[obsx]] <- ifelse(grepl('histrio',  df1.clean.sep[[obsx]]) | grepl('sargassum f',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
-}
-
-for (x in 1:16) {
-  obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Hiphis <- ifelse(grepl('hip h',  df1.clean.sep[[obsx]]) | grepl('strix',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Hiphis)
+  df1.clean.sep$Spiny.seahorse <- ifelse(grepl('hip h',  df1.clean.sep[[obsx]]) | grepl('strix',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Spiny.seahorse)
   df1.clean.sep[[obsx]] <- ifelse(grepl('hip h',  df1.clean.sep[[obsx]]) | grepl('strix',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Hipkud <- ifelse(grepl('hip k',  df1.clean.sep[[obsx]]) | grepl('kud',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Hipkud)
+  df1.clean.sep$Common.seahorse <- ifelse(grepl('hip k',  df1.clean.sep[[obsx]]) | grepl('kud',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Common.seahorse )
   df1.clean.sep[[obsx]] <- ifelse(grepl('hip k',  df1.clean.sep[[obsx]]) | grepl('kud',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
@@ -578,92 +570,86 @@ for (x in 1:16) {
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Pipehorse <- ifelse(grepl('pipeh',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Pipehorse)
-  df1.clean.sep[[obsx]] <- ifelse(grepl('pipeh',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+  df1.clean.sep$Pipehorse <- ifelse(grepl('pipeh',  df1.clean.sep[[obsx]]) | grepl('pipe h',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Pipehorse)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('pipeh',  df1.clean.sep[[obsx]]) | grepl('pipe h',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Ghostpipe <- ifelse(grepl('ghost',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Ghostpipe)
+  df1.clean.sep$Ghost.pipefish <- ifelse(grepl('ghost',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Ghost.pipefish)
   df1.clean.sep[[obsx]] <- ifelse(grepl('ghost',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Pegasus <- ifelse(grepl('pegasus',  df1.clean.sep[[obsx]]) | grepl('dragon',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Pegasus)
+  df1.clean.sep$Sea.moth <- ifelse(grepl('pegasus',  df1.clean.sep[[obsx]]) | grepl('dragon',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Sea.moth)
   df1.clean.sep[[obsx]] <- ifelse(grepl('pegasus',  df1.clean.sep[[obsx]]) | grepl('dragon',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Dacori <- ifelse(grepl('dac ori',  df1.clean.sep[[obsx]]) | grepl('gurnard',  df1.clean.sep[[obsx]]) | grepl('dactyloptena',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Dacori)
+  df1.clean.sep$Flying.gurnard <- ifelse(grepl('dac ori',  df1.clean.sep[[obsx]]) | grepl('gurnard',  df1.clean.sep[[obsx]]) | grepl('dactyloptena',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Flying.gurnard)
   df1.clean.sep[[obsx]] <- ifelse(grepl('dac ori',  df1.clean.sep[[obsx]]) | grepl('gurnard',  df1.clean.sep[[obsx]]) | grepl('dactyloptena',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Stone <- ifelse(grepl('stone',  df1.clean.sep[[obsx]]) | grepl('syn ver',  df1.clean.sep[[obsx]]) | grepl('syna',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Stone)
+  df1.clean.sep$Stonefish <- ifelse(grepl('stone',  df1.clean.sep[[obsx]]) | grepl('syn ver',  df1.clean.sep[[obsx]]) | grepl('syna',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Stonefish)
   df1.clean.sep[[obsx]] <- ifelse(grepl('stone',  df1.clean.sep[[obsx]]) | grepl('syn ver',  df1.clean.sep[[obsx]]) | grepl('syna',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Walkman <- ifelse(grepl('walk',  df1.clean.sep[[obsx]]) | grepl('ini fil',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Walkman)
+  df1.clean.sep$Indian.ocean.walkman <- ifelse(grepl('walk',  df1.clean.sep[[obsx]]) | grepl('ini fil',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Indian.ocean.walkman)
   df1.clean.sep[[obsx]] <- ifelse(grepl('walk',  df1.clean.sep[[obsx]]) | grepl('ini fil',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Leaf <- ifelse(grepl('leaf',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Leaf)
+  df1.clean.sep$Leaffish <- ifelse(grepl('leaf',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Leaffish)
   df1.clean.sep[[obsx]] <- ifelse(grepl('leaf',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Wasp <- ifelse(grepl('wasp',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Wasp)
+  df1.clean.sep$Waspfish <- ifelse(grepl('wasp',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Waspfish)
   df1.clean.sep[[obsx]] <- ifelse(grepl('wasp',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Rhino <- ifelse(grepl('rhinopias',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Rhino)
+  df1.clean.sep$Rhinopias <- ifelse(grepl('rhinopias',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Rhinopias)
   df1.clean.sep[[obsx]] <- ifelse(grepl('rhinopias',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Snakeel <- ifelse(grepl('snake',  df1.clean.sep[[obsx]]) | grepl('myr',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Snakeel)
+  df1.clean.sep$Snake.eel <- ifelse(grepl('snake',  df1.clean.sep[[obsx]]) | grepl('myr',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Snake.eel)
   df1.clean.sep[[obsx]] <- ifelse(grepl('snake',  df1.clean.sep[[obsx]]) | grepl('myr',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Crocodile <- ifelse(grepl('croc',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Crocodile)
+  df1.clean.sep$Crocodilefish <- ifelse(grepl('croc',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Crocodilefish)
   df1.clean.sep[[obsx]] <- ifelse(grepl('croc',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Annoyingfish <- ifelse(grepl('annoy',  df1.clean.sep[[obsx]]), "1", df1.clean.sep$Annoyingfish)
-  df1.clean.sep[[obsx]] <- ifelse(grepl('annoy',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+  df1.clean.sep$Ribbon.eel <- ifelse(grepl('rhi qua',  df1.clean.sep[[obsx]]) | grepl('ribbon',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Ribbon.eel)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('rhi qua',  df1.clean.sep[[obsx]]) | grepl('ribbon',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 ## Big fish
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Napoleon <- ifelse(grepl('napoleon',  df1.clean.sep[[obsx]]) | grepl('che und',  df1.clean.sep[[obsx]]) | grepl('undulatus',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Napoleon)
+  df1.clean.sep$Napoleon.wrasse <- ifelse(grepl('napoleon',  df1.clean.sep[[obsx]]) | grepl('che und',  df1.clean.sep[[obsx]]) | grepl('undulatus',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Napoleon.wrasse)
   df1.clean.sep[[obsx]] <- ifelse(grepl('napoleon',  df1.clean.sep[[obsx]]) | grepl('che und',  df1.clean.sep[[obsx]]) | grepl('undulatus',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Barracuda <- ifelse(grepl('barracuda',  df1.clean.sep[[obsx]]) | grepl('sph',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Barracuda)
-  df1.clean.sep[[obsx]] <- ifelse(grepl('barracuda',  df1.clean.sep[[obsx]]) | grepl('sph',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
-}
-
-for (x in 1:16) {
-  obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Epilan <- ifelse(grepl('epi lan',  df1.clean.sep[[obsx]]) | grepl('giant g',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Epilan)
+  df1.clean.sep$Giant.grouper <- ifelse(grepl('epi lan',  df1.clean.sep[[obsx]]) | grepl('giant g',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Giant.grouper)
   df1.clean.sep[[obsx]] <- ifelse(grepl('epi lan',  df1.clean.sep[[obsx]]) | grepl('giant g',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
@@ -675,14 +661,14 @@ for (x in 1:16) {
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Cobia <- ifelse(grepl('cobia',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Cobia)
-  df1.clean.sep[[obsx]] <- ifelse(grepl('cobia',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+  df1.clean.sep$Cobia <- ifelse(grepl('cobia',  df1.clean.sep[[obsx]]) | grepl('rac can',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Cobia)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('cobia',  df1.clean.sep[[obsx]]) | grepl('rac can',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 ## Elasmo
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Torpedo <- ifelse(grepl('torp',  df1.clean.sep[[obsx]]) | grepl('electric',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Torpedo)
+  df1.clean.sep$Torpedo.ray <- ifelse(grepl('torp',  df1.clean.sep[[obsx]]) | grepl('electric',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Torpedo.ray)
   df1.clean.sep[[obsx]] <- ifelse(grepl('torp',  df1.clean.sep[[obsx]]) | grepl('electric',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
@@ -706,7 +692,7 @@ for (x in 1:16) {
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Eagle <- ifelse(grepl('eagle',  df1.clean.sep[[obsx]]) | grepl('devil',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Eagle)
+  df1.clean.sep$Eagle.ray <- ifelse(grepl('eagle',  df1.clean.sep[[obsx]]) | grepl('devil',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Eagle.ray)
   df1.clean.sep[[obsx]] <- ifelse(grepl('eagle',  df1.clean.sep[[obsx]]) | grepl('devil',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
@@ -719,7 +705,7 @@ for (x in 1:16) {
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Harlequin <- ifelse(grepl('harlequin',  df1.clean.sep[[obsx]]) | grepl('hym',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Harlequin)
+  df1.clean.sep$Harlequin.shrimp <- ifelse(grepl('harlequin',  df1.clean.sep[[obsx]]) | grepl('hym',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Harlequin.shrimp)
   df1.clean.sep[[obsx]] <- ifelse(grepl('harlequin',  df1.clean.sep[[obsx]]) | grepl('hym',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
@@ -731,13 +717,19 @@ for (x in 1:16) {
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
+  df1.clean.sep$Culcita <- ifelse(grepl('culcita',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Culcita)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('culcita',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+}
+
+for (x in 1:16) {
+  obsx <- paste("Obs.", x, sep="")
   df1.clean.sep$Triton <- ifelse(grepl('triton',  df1.clean.sep[[obsx]]) | grepl('charonia',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Triton)
   df1.clean.sep[[obsx]] <- ifelse(grepl('triton',  df1.clean.sep[[obsx]]) | grepl('charonia',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Octo <- ifelse(grepl('octo',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Octo)
+  df1.clean.sep$Octopus <- ifelse(grepl('octo',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Octopus)
   df1.clean.sep[[obsx]] <- ifelse(grepl('octo',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
@@ -749,32 +741,26 @@ for (x in 1:16) {
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Squid <- ifelse(grepl('squid',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Squid)
-  df1.clean.sep[[obsx]] <- ifelse(grepl('squid',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
-}
-
-for (x in 1:16) {
-  obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Nudis <- ifelse(grepl('nudi',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Nudis)
+  df1.clean.sep$Nudibranch <- ifelse(grepl('nudi',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Nudibranch)
   df1.clean.sep[[obsx]] <- ifelse(grepl('nudi',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Flats <- ifelse(grepl('flat',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Flats)
+  df1.clean.sep$Flatworm <- ifelse(grepl('flat',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Flatworm)
   df1.clean.sep[[obsx]] <- ifelse(grepl('flat',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 ## Turtles
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Chemyd <- ifelse(grepl('che myd',  df1.clean.sep[[obsx]]) | grepl('green',  df1.clean.sep[[obsx]]) | grepl('chelonia',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Chemyd)
-  df1.clean.sep[[obsx]] <- ifelse(grepl('che myd',  df1.clean.sep[[obsx]]) | grepl('green',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
+  df1.clean.sep$Green.turtle <- ifelse(grepl('che myd',  df1.clean.sep[[obsx]]) | grepl('green',  df1.clean.sep[[obsx]]) | grepl('chelonia',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Green.turtle)
+  df1.clean.sep[[obsx]] <- ifelse(grepl('che myd',  df1.clean.sep[[obsx]]) | grepl('green',  df1.clean.sep[[obsx]]) | grepl('chelonia',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
 for (x in 1:16) {
   obsx <- paste("Obs.", x, sep="")
-  df1.clean.sep$Ereimb <- ifelse(grepl('ere imb',  df1.clean.sep[[obsx]]) | grepl('hawk',  df1.clean.sep[[obsx]]) | grepl('imbricata',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Ereimb)
+  df1.clean.sep$Hawksbill.turtle <- ifelse(grepl('ere imb',  df1.clean.sep[[obsx]]) | grepl('hawk',  df1.clean.sep[[obsx]]) | grepl('imbricata',  df1.clean.sep[[obsx]]), str_extract(df1.clean.sep[[obsx]], "x[[:digit:]]+"), df1.clean.sep$Hawksbill.turtle )
   df1.clean.sep[[obsx]] <- ifelse(grepl('ere imb',  df1.clean.sep[[obsx]]) | grepl('hawk',  df1.clean.sep[[obsx]]) | grepl('imbricata',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
@@ -792,7 +778,104 @@ for (x in 1:16) {
   df1.clean.sep[[obsx]] <- ifelse(grepl('hare',  df1.clean.sep[[obsx]]), "", df1.clean.sep[[obsx]])
 }
 
-write_xlsx(df1.clean.sep, "Excel.xlsx")
+# Overview of observations
+## Organize dataframe
+obslist <- data.frame(Count = unlist(df1.clean.sep[50:ncol(df1.clean.sep)]))
+obslist <- tibble::rownames_to_column(obslist, "Animal")
+obslist <- obslist[!(is.na(obslist$Count) | obslist$Count==""), ]
+obslist$Animal <- gsub('\\.', ' ', obslist$Animal)
+obslist$Animal <- as.factor(gsub('[[:digit:]]+', '', obslist$Animal))
+obslist$Count <- as.numeric(gsub('x', '', obslist$Count))
+
+## Count observations for each animal
+obscount <- data_summary(obslist, varname = "Count", groupnames = c("Animal"))
+obscount <- select(obscount, c("Animal", "sum"))
+obscount$Animal.x <- paste(obscount$Animal, " (", obscount$sum, ")", sep = "")
+
+## Exclude animals of non interest
+obscount <- subset(obscount, Animal != "Nudibranch" & Animal != "Flatworm" & Animal != "COTS" & Animal != "Culcita")
+obscount$Family <- ""
+obscount$Family <- ifelse(obscount$Animal == "Cobia", "Big stuff",
+                   ifelse(obscount$Animal == "Common seahorse", "Cryptos", 
+                   ifelse(obscount$Animal == "Crocodilefish", "Bottom dwellers",
+                   ifelse(obscount$Animal == "Dolphin", "Big stuff",
+                   ifelse(obscount$Animal == "Eagle ray", "Elasmos",        
+                   ifelse(obscount$Animal == "Flying gurnard", "Bottom dwellers",       
+                   ifelse(obscount$Animal == "Frogfish", "Cryptos",
+                   ifelse(obscount$Animal == "Ghost pipefish", "Cryptos",       
+                   ifelse(obscount$Animal == "Giant grouper", "Big stuff",       
+                   ifelse(obscount$Animal == "Green turtle", "Turtles",      
+                   ifelse(obscount$Animal == "Guitarray", "Elasmos",       
+                   ifelse(obscount$Animal == "Harlequin shrimp", "Cryptos", 
+                   ifelse(obscount$Animal == "Hawksbill turtle", "Turtles",       
+                   ifelse(obscount$Animal == "Indian ocean walkman", "Bottom dwellers",       
+                   ifelse(obscount$Animal == "Leaffish", "Cryptos",       
+                   ifelse(obscount$Animal == "Lobster", "Inverts",       
+                   ifelse(obscount$Animal == "Napoleon wrasse", "Big stuff",        
+                   ifelse(obscount$Animal == "Octopus", "Inverts",       
+                   ifelse(obscount$Animal == "Pipehorse", "Cryptos",
+                   ifelse(obscount$Animal == "Ray", "Elasmos",       
+                   ifelse(obscount$Animal == "Rhinopias", "Cryptos",
+                   ifelse(obscount$Animal == "Ribbon eel", "Other",       
+                   ifelse(obscount$Animal == "Sea moth", "Cryptos",       
+                   ifelse(obscount$Animal == "Seahorse", "Cryptos",
+                   ifelse(obscount$Animal == "Sepia", "Inverts",       
+                   ifelse(obscount$Animal == "Shark", "Elasmos",        
+                   ifelse(obscount$Animal == "Snake eel", "Other",
+                   ifelse(obscount$Animal == "Spiny seahorse", "Cryptos",      
+                   ifelse(obscount$Animal == "Stonefish", "Bottom dwellers",      
+                   ifelse(obscount$Animal == "Torpedo ray", "Elasmos",
+                   ifelse(obscount$Animal == "Triton", "Inverts",       
+                   ifelse(obscount$Animal == "Turtle", "Turtles",  
+                   ifelse(obscount$Animal == "Waspfish", "Cryptos", "Other" )))))))))))))))))))))))))))))))))
+
+# Clean dataframe for observations
+df3.observations <- as.data.frame(df1.clean.sep)
+df3.observations <- select(df3.observations, -c("lat", "lng", "tankvolume", "barstart", "barend", "Obs.1", "Obs.2", "Obs.3", "Obs.4", "Obs.5", "Obs.6", "Obs.7", "Obs.8", "Obs.9", "Obs.10", "Obs.11", "Obs.12", "Obs.13", "Obs.14", "Obs.15", "Obs.16", "samplerate", "profiledata"))
+
+startnum <- as.numeric(which(colnames(df3.observations)=="Frogfish"))
+endnum <- as.numeric(ncol(df3.observations))
+
+for (i in startnum:endnum){
+  df3.observations[,i] <- as.numeric(gsub('x', '', df3.observations[,i]))
+  df3.observations[,i][is.na(df3.observations[,i])] <- 0
+}
+
+# Subsetting
+df4.obsubset <- subset(df3.observations, (place == "Shimoni" | place == "Kisite")  & Type == "Fun")
+
+# Yes/No observations
+for (i in startnum:endnum){
+  df4.obsubset[, i] <- ifelse(df4.obsubset[, i] >= 1, 1, 0)
+}
+df4.obsubset <- droplevels(df4.obsubset)
+
+df5.Obssum <- df4.obsubset %>%
+  group_by(divesite) %>%
+    summarise_at(vars(Frogfish, Spiny.seahorse, Common.seahorse, Pipehorse, Ghost.pipefish, Leaffish, Waspfish, Rhinopias, Flying.gurnard, Green.turtle, Hawksbill.turtle, Napoleon.wrasse, Dolphin, Guitarray, Shark), list(mean))
+
+startnum <- as.numeric(which(colnames(df5.Obssum)=="Frogfish"))
+endnum <- as.numeric(ncol(df5.Obssum))
+
+for (i in startnum:endnum){
+  df5.Obssum[,i] <- round(df5.Obssum[,i]*100, digits = 1)
+}
+
+# Add total dives per site
+Dives <-   df4.obsubset %>%
+  group_by(divesite) %>% 
+    summarise_at(vars(Frogfish), funs(n()))
+Dives <-  Dives %>% 
+  dplyr::rename(Dives = Frogfish)
+
+df5.Obssum <- left_join(df5.Obssum, Dives, by = "divesite")
+
+# Add GPS coordinates
+Coords <- select(df1.clean, c("divesite", "lat", "lng"))
+df5.Obssum <- inner_join(df5.Obssum, Coords, by = 'divesite', multiple = "any")
+
+write_xlsx(df5.Obssum, "Observations per site.xlsx")
+
 
 ```
 
@@ -814,6 +897,17 @@ treemap(buddycount, index=c("Buddy.count"), vSize="Dive.count",  type="index",
         border.col=c("#FFFFFF","#F4F4F4"), border.lwds=c(2),
         title= paste("Total buddies:", buddies.tot, "(total dives:", dives.tot, ")" ), fontsize.title= 18)
 dev.off()
+
+# --- OBSERVATIONS ---
+dives.tot <- as.numeric(nrow(df1.clean))
+tiff(file="Observations.tiff", width=17, height = 24, units="cm", res=1200, compression = "lzw")
+treemap(obscount, index=c("Family","Animal.x"), vSize="sum",  type="index",
+        inflate.labels = T, fontsize.labels = c(0, 8), align.labels = c("center", "center"), fontcolor.labels = "#292929",
+        lowerbound.cex.labels = 0, palette = "Pastel2",
+        border.col=c("#FFFFFF","#F4F4F4"), border.lwds=c(2),
+        title= paste("Total dives:", dives.tot), fontsize.title= 18)
+dev.off()
+
 
 # --- DIVE ACTIVITIES ---
 
@@ -1016,7 +1110,7 @@ ggplot(df1.clean, aes(depth, fill = depth))+
   coord_cartesian(xlim = c(0, depth.max*1.16), clip = 'off')+
   stat_bin(binwidth = 2, boundary = 0, geom = "text", aes(label = ..count..) , vjust = 0.4, hjust = -0.3, size = 2)+
   geom_histogram(data = df1.clean, binwidth = 2, boundary = 0, aes(depth, fill = cut(depth, 300)), show.legend = FALSE)+
-  scale_fill_manual(values = sequential_hcl(207, h = c(190, 270), c = c(55, 30), l = c(92,20)))+
+  scale_fill_manual(values = sequential_hcl(209, h = c(190, 270), c = c(55, 30), l = c(92,20)))+
   annotate(geom = "text", x = depth.max, y = 20, 
     label = paste("  Max =", depth.max, "m"), hjust = 0.3, vjust = 1, size = 3)+
   scale_x_continuous(breaks = seq(0, 50, by = 10))+
@@ -1057,7 +1151,7 @@ p <- ggplot(df1.clean, aes(depth, fill = depth))+
   coord_cartesian(xlim = c(0, depth.max*1.16), clip = 'off')+
   stat_bin(binwidth = 2, boundary = 0, geom = "text", aes(label = ..count..) , vjust = 0.4, hjust = -0.3, size = 2, colour = "white")+
   geom_histogram(data = df1.clean, binwidth = 2, boundary = 0, aes(depth, fill = cut(depth, 300)), show.legend = FALSE)+
-  scale_fill_manual(values = sequential_hcl(207, h = c(180, 220), c = c(20, 50), l = c(97, 75)))+
+  scale_fill_manual(values = sequential_hcl(209, h = c(180, 220), c = c(20, 50), l = c(97, 75)))+
   annotate(geom = "text", x = depth.max, y = 20, colour = "white",
     label = paste("  Max =", depth.max, "m"), hjust = 0.3, vjust = 1, size = 3)+
   scale_x_continuous(breaks = seq(0, 50, by = 10))+
